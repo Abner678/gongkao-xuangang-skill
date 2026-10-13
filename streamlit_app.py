@@ -1,56 +1,44 @@
 import streamlit as st
-from openai import OpenAI
 
-# Show title and description.
-st.title("💬 Chatbot")
-st.write(
-    "This is a simple chatbot that uses OpenAI's GPT-3.5 model to generate responses. "
-    "To use this app, you need to provide an OpenAI API key, which you can get [here](https://platform.openai.com/account/api-keys). "
-    "You can also learn how to build this app step by step by [following our tutorial](https://docs.streamlit.io/develop/tutorials/llms/build-conversational-apps)."
-)
+# 页面配置
+st.set_page_config(page_title="公考选岗AI", page_icon="🏛️")
+st.title("🏛️ 公考选岗（避坑与捡漏）")
+st.caption("考得好不如选得好！我是你的专属选岗顾问。")
 
-# Ask user for their OpenAI API key via `st.text_input`.
-# Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
-# via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
-openai_api_key = st.text_input("OpenAI API Key", type="password")
-if not openai_api_key:
-    st.info("Please add your OpenAI API key to continue.", icon="🗝️")
-else:
+# 初始化聊天记录
+if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {
+            "role": "assistant", 
+            "content": "你好！为了帮你精准匹配国考/省考/选调岗位，我们需要先确认你的基本条件。\n\n**第一步：你的最高学历是？**\nA. 大专\nB. 本科\nC. 硕士\nD. 博士\n\n*(请回复选项字母)*"
+        }
+    ]
 
-    # Create an OpenAI client.
-    client = OpenAI(api_key=openai_api_key)
+# 渲染历史消息
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.write(msg["content"])
 
-    # Create a session state variable to store the chat messages. This ensures that the
-    # messages persist across reruns.
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
+# 接收用户输入
+if prompt := st.chat_input("请回复选项或输入你的情况..."):
+    # 显示用户消息
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.write(prompt)
 
-    # Display the existing chat messages via `st.chat_message`.
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    # AI 回复逻辑
+    with st.chat_message("assistant"):
+        # ⚠️ 这里目前是模拟回复，15号接入 TokenPay 后替换为真实 API 调用
+        # 你也可以现在写死一些逻辑，比如判断用户输入的是A/B/C/D
+        reply = "收到！接下来请告诉我你的**专业类别**（例如：计算机类、法学类、经济学类...）"
+        
+        st.write(reply)
+        st.session_state.messages.append({"role": "assistant", "content": reply})
 
-    # Create a chat input field to allow the user to enter a message. This will display
-    # automatically at the bottom of the page.
-    if prompt := st.chat_input("What is up?"):
-
-        # Store and display the current prompt.
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
-        # Generate a response using the OpenAI API.
-        stream = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": m["role"], "content": m["content"]}
-                for m in st.session_state.messages
-            ],
-            stream=True,
-        )
-
-        # Stream the response to the chat using `st.write_stream`, then store it in 
-        # session state.
-        with st.chat_message("assistant"):
-            response = st.write_stream(stream)
-        st.session_state.messages.append({"role": "assistant", "content": response})
+# 侧边栏提示
+with st.sidebar:
+    st.info("🚧 数据接入中，15号国考岗位发布后将实时更新！")
+    st.markdown("---")
+    st.markdown("**操作指南：**\n1. 回答几个选择题\n2. AI 帮你筛选匹配岗位\n3. 分析竞争度，避开万人坑")
+    st.markdown("---")
+    st.markdown("**开发者：** 欢迎体验")
