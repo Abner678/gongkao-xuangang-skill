@@ -1,11 +1,15 @@
 import streamlit as st
+import requests
 
-# 页面配置
 st.set_page_config(page_title="公考选岗AI", page_icon="🏛️")
 st.title("🏛️ 公考选岗（避坑与捡漏）")
 st.caption("考得好不如选得好！我是你的专属选岗顾问。")
 
-# 初始化聊天记录
+# 1. 从 Streamlit Secrets 安全读取你刚刚配置的 API 密钥
+API_KEY = st.secrets["TOKENDANCE_API_KEY"]
+API_URL = "https://api.tokendance.space/v1/chat/completions" # TokenDance 标准 OpenAI 兼容接口
+MODEL_NAME = "deepseek-chat" # 使用你额度支持的模型（如 deepseek-chat 或 deepseek-v4-flash）
+
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {
@@ -14,31 +18,42 @@ if "messages" not in st.session_state:
         }
     ]
 
-# 渲染历史消息
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
 
-# 接收用户输入
 if prompt := st.chat_input("请回复选项或输入你的情况..."):
-    # 显示用户消息
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.write(prompt)
 
-    # AI 回复逻辑
     with st.chat_message("assistant"):
-        # ⚠️ 这里目前是模拟回复，15号接入 TokenPay 后替换为真实 API 调用
-        # 你也可以现在写死一些逻辑，比如判断用户输入的是A/B/C/D
-        reply = "收到！接下来请告诉我你的**专业类别**（例如：计算机类、法学类、经济学类...）"
-        
-        st.write(reply)
-        st.session_state.messages.append({"role": "assistant", "content": reply})
+        with st.spinner("AI 正在分析你的选岗策略..."):
+            try:
+                headers = {
+                    "Authorization": f"Bearer {API_KEY}",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "model": MODEL_NAME,
+                    "messages": [
+                        {"role": "system", "content": "你是一个专业的公考选岗AI助手。请通过提问和提供选项的方式收集用户条件（学历、专业、政治面貌、基层年限）。每次只问一个问题，等用户回答后再问下一个。最后匹配岗位时，要提供避坑和捡漏建议。"}
+                    ] + st.session_state.messages,
+                    "temperature": 0.7
+                }
+                
+                response = requests.post(API_URL, headers=headers, json=payload)
+                response.raise_for_status()
+                reply = response.json()["choices"][0]["message"]["content"]
+                
+                st.write(reply)
+                st.session_state.messages.append({"role": "assistant", "content": reply})
+                
+            except Exception as e:
+                st.error(f"调用失败：{e}")
+                st.session_state.messages.append({"role": "assistant", "content": "抱歉，我暂时无法连接模型服务。"})
 
-# 侧边栏提示
 with st.sidebar:
     st.info("🚧 数据接入中，15号国考岗位发布后将实时更新！")
     st.markdown("---")
     st.markdown("**操作指南：**\n1. 回答几个选择题\n2. AI 帮你筛选匹配岗位\n3. 分析竞争度，避开万人坑")
-    st.markdown("---")
-    st.markdown("**开发者：** 欢迎体验")
