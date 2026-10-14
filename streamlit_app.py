@@ -5,10 +5,15 @@ st.set_page_config(page_title="公考选岗AI", page_icon="🏛️")
 st.title("🏛️ 公考选岗（避坑与捡漏）")
 st.caption("考得好不如选得好！我是你的专属选岗顾问。")
 
-# 1. 从 Streamlit Secrets 安全读取你刚刚配置的 API 密钥
+# 从 Streamlit Secrets 安全读取 API Key
 API_KEY = st.secrets["TOKENDANCE_API_KEY"]
-API_URL = "https://api.tokendance.space/v1/chat/completions" # TokenDance 标准 OpenAI 兼容接口
-MODEL_NAME = "deepseek-chat" # 使用你额度支持的模型（如 deepseek-chat 或 deepseek-v4-flash）
+
+# ✅ 正确的基础地址（注意是 tokendance.space，不是 api.tokendance.space）
+BASE_URL = "https://tokendance.space/gateway/v1"
+API_URL = f"{BASE_URL}/chat/completions"
+
+# ✅ 模型名称：从你账户支持的模型中选择
+MODEL_NAME = "deepseek-v4-flash-0731"
 
 if "messages" not in st.session_state:
     st.session_state.messages = [
@@ -39,19 +44,24 @@ if prompt := st.chat_input("请回复选项或输入你的情况..."):
                     "messages": [
                         {"role": "system", "content": "你是一个专业的公考选岗AI助手。请通过提问和提供选项的方式收集用户条件（学历、专业、政治面貌、基层年限）。每次只问一个问题，等用户回答后再问下一个。最后匹配岗位时，要提供避坑和捡漏建议。"}
                     ] + st.session_state.messages,
-                    "temperature": 0.7
+                    "temperature": 0.7,
+                    "stream": False
                 }
                 
-                response = requests.post(API_URL, headers=headers, json=payload)
+                response = requests.post(API_URL, headers=headers, json=payload, timeout=60)
                 response.raise_for_status()
                 reply = response.json()["choices"][0]["message"]["content"]
                 
                 st.write(reply)
                 st.session_state.messages.append({"role": "assistant", "content": reply})
                 
+            except requests.exceptions.Timeout:
+                st.error("请求超时，请稍后重试。")
+            except requests.exceptions.HTTPError as e:
+                st.error(f"HTTP 错误：{e.response.status_code}")
+                st.error(f"错误详情：{e.response.text}")
             except Exception as e:
                 st.error(f"调用失败：{e}")
-                st.session_state.messages.append({"role": "assistant", "content": "抱歉，我暂时无法连接模型服务。"})
 
 with st.sidebar:
     st.info("🚧 数据接入中，15号国考岗位发布后将实时更新！")
